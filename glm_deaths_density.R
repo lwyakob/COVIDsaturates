@@ -156,11 +156,10 @@ theta3 <- c(seq(0.025,0.035,0.001))
 fits3 <- lapply(theta3, fit_glm)
 looic3 <- sapply(fits3, function(fit) loo(fit)$estimates[3,1])
 
-### Bind all proposed values and corresponding elpd
+### Bind all proposed values and corresponding LOOIC
 theta_all <- c(theta, theta2,theta3)
 fits_all <- rlist::list.append(fits,fits2,fits3)
 looic_all <- unlist(c(looic1,looic2,looic3))
-waic_all <- lapply(fits_all, function(x) loo::waic(x)$estimates[3,])
 
 # png(filename = "./figures/theta_opt_looic.png",height = 400, width = 600)
 plot(theta_all, looic_all, main = paste0("Optimal theta = ",theta_all[which.min(looic_all)]), xlab = "Theta",ylab = "LOOIC")
@@ -206,13 +205,13 @@ lapply(mods, plot_coeffs)
 
 ## Calculate approximate LOO CV and compare
 loo_mods <- lapply(mods, loo)
-comp_mods <- loo_compare(loo_mods)
+comp_mods <- loo_compare(loo_mods) 
 print(comp_mods, simplify = F)
 
-looic_stanmods <- lapply(mods, function(x) loo(x)$estimates[3,])
-looictab <- data.frame(Form = names(mods), bind_rows(looic_stanmods)) %>%
+looic_mods <- lapply(mods, function(x) loo(x)$estimates[3,])
+looictab <- data.frame(Form = names(mods), bind_rows(looic_mods)) %>%
   mutate(Difference = Estimate - min(Estimate)) %>%
-  arrange(-Difference)
+  arrange(Difference)
 
 ## Plot elpd for all models (maximum is best)
 # png(file = "./figures/model_diff.png", height = 400, width = 500)
@@ -223,18 +222,21 @@ comp_mods %>%
   geom_errorbar(aes(ymin = elpd_diff - se_diff, ymax = elpd_diff + se_diff), width = 0.1) +
   geom_point() + 
   theme_classic() + 
-  geom_hline(aes(yintercept = 0), lty = "dashed", col = "red")
+  geom_hline(aes(yintercept = 0), lty = "dashed", col = "red") + 
+  labs(y = "Difference ELPD")
 # dev.off()
 
 ## Equivalently plot looic for all models (minimum is best)
 # png(file = "./figures/model_diff.png", height = 400, width = 500)
-looictab %>%
+comp_mods %>%
   as.data.frame() %>%
-  ggplot(aes(Form, Estimate)) + 
-  geom_errorbar(aes(ymin = Estimate - SE, ymax = Estimate + SE), width = 0.1) +
+  rownames_to_column(var = "Form") %>%
+  ggplot(aes(Form, looic)) + 
+  geom_errorbar(aes(ymin = looic - se_looic, ymax = looic + se_looic), width = 0.1) +
   geom_point() + 
   theme_classic() + 
-  geom_hline(aes(yintercept = min(looictab$Estimate)), lty = "dashed", col = "red")
+  geom_hline(aes(yintercept = min(looictab$Estimate)), lty = "dashed", col = "red") +
+  labs(y = "LOOIC")
 # dev.off()
 
 
