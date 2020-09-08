@@ -88,7 +88,7 @@ dat_tot %>%
        fill = "") -> map_dens
 
 # png(file = "./figures/map_mort.png",height = 400, width = 800)
-map_tot + map_SMR
+# map_tot + map_SMR
 # dev.off()
 
 # png(filename = "./figures/map_mort_dens.png", height = 4, width = 8, units = "in", res = 600)
@@ -133,7 +133,7 @@ prior_summary(C)
 
 
 # Saturated effect of population density
-## Fit saturation function: Manually optimise saturation function with respect to ELPD of GLM adjusted for other covariates:
+## Fit saturation function: Manually optimise saturation function with respect to LOOIC of GLM adjusted for other covariates:
 
 fit_glm <- function(theta){stan_glm.nb(n ~ IMD_scale + prop_minority_scale + prop_kw_scale + sat_func(pop_dens, theta) + offset(log(E)), data = dat_tot, seed = 12345) }
 
@@ -166,7 +166,7 @@ waic_all <- lapply(fits_all, function(x) loo::waic(x)$estimates[3,])
 plot(theta_all, looic_all, main = paste0("Optimal theta = ",theta_all[which.min(looic_all)]), xlab = "Theta",ylab = "LOOIC")
 abline(v = theta_all[which.min(looic_all)], col = "red", lty = "dashed")
 abline(h = min(looic_all), col = "red", lty = "dashed")
-dev.off()
+# dev.off()
 
 
 ## Define theta as that which maximised elpd
@@ -174,7 +174,7 @@ theta_opt <- theta_all[which.min(looic_all)]
 
 
 ## Extract optimal fit
-D <- fits3[[which.max(elpd3)]]
+D <- fits3[[which.in(looic_all)]]
 summary(D, probs = c(0.01, 0.99), digits = 2)
 
 prior_summary(D)
@@ -183,9 +183,8 @@ pp_check(D, plotfun = "dens_overlay")
 
 posterior_vs_prior(D)
 
-
-fD <- n ~ IMD_scale + prop_minority_scale + prop_kw_scale +  sat_func(pop_dens, theta_opt) + offset(log(E))
-D <- stan_glm.nb(fD, data = dat_tot, seed = 12345)
+# fD <- n ~ IMD_scale + prop_minority_scale + prop_kw_scale +  sat_func(pop_dens, theta_opt) + offset(log(E))
+# D <- stan_glm.nb(fD, data = dat_tot, seed = 12345)
 summary(D)
 
 exp(posterior_interval(D, pars = c("prop_minority_scale","IMD_scale","prop_kw_scale","sat_func(pop_dens, theta)")))
@@ -196,22 +195,22 @@ plot(D, pars = c("prop_minority_scale","IMD_scale","prop_kw_scale","sat_func(pop
 # MODEL COMPARISON
 # ---------------------------------------------------------------------------- #
 
-stan_mods <- list(A,B,C,D)
-# saveRDS(stan_mods, file = "./stan_mods.rds")
-names(stan_mods) <- c("Independent","Linear","Log-linear","Saturating")
+mods <- list(A,B,C,D)
+# saveRDS(mods, file = "./mods.rds")
+names(mods) <- c("Independent","Linear","Log-linear","Saturating")
 
 ## Plot model coefficient posteriors
 # pdf(file = "./figures/model_coeffs.pdf", height = 400, width = 500)
-lapply(stan_mods, plot_coeffs)
+lapply(mods, plot_coeffs)
 # dev.off()
 
 ## Calculate approximate LOO CV and compare
-loo_stanmods <- lapply(stan_mods, loo)
-comp_mods <- loo_compare(loo_stanmods)
+loo_mods <- lapply(mods, loo)
+comp_mods <- loo_compare(loo_mods)
 print(comp_mods, simplify = F)
 
-looic_stanmods <- lapply(stan_mods, function(x) loo(x)$estimates[3,])
-looictab <- data.frame(Form = names(stan_mods), bind_rows(looic_stanmods)) %>%
+looic_stanmods <- lapply(mods, function(x) loo(x)$estimates[3,])
+looictab <- data.frame(Form = names(mods), bind_rows(looic_stanmods)) %>%
   mutate(Difference = Estimate - min(Estimate)) %>%
   arrange(-Difference)
 
@@ -227,6 +226,7 @@ comp_mods %>%
   geom_hline(aes(yintercept = 0), lty = "dashed", col = "red")
 # dev.off()
 
+## Equivalently plot looic for all models (minimum is best)
 # png(file = "./figures/model_diff.png", height = 400, width = 500)
 looictab %>%
   as.data.frame() %>%
